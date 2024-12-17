@@ -1,0 +1,200 @@
+---
+title: "Cohort Population Analysis with R"
+author: "Shusei Yokoi"
+date: "8/14/2020"
+output:
+  html_document:
+    code_folding: hide
+  word_document: default
+---
+“Cohort analysis is a subset of behavioral analytics that takes the data from a given data set (e.g., an EMRS, an e-commerce platform, web application, or online game) and rather than looking at all users as one unit, it breaks them into related groups for analysis. These related groups, or cohorts, usually share common characteristics or experiences within a defined time span.” - Wikipedia
+
+### Objectives
+
+The primary objective of this analysis is to conduct cohort analysis on Japan’s population data using R and to develop a predictive model for estimating future population trends. This involves analyzing historical census data and deriving survival rates to forecast population changes accurately.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(datasets)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+source(gzcon(url('https://github.com/systematicinvestor/SIT/raw/master/sit.gz', 'rb')))
+library(tidyverse)
+library(DT)
+```
+
+### Data Acquisition and Preparation
+
+The datasets used in this analysis were sourced from [e-Stat](https://www.e-stat.go.jp/en), the official Japanese government statistics portal. Two datasets were utilized: periodic population census data from 1920 to 2005 and census data from 2010.
+
+The analysis focuses on population changes between 1990 and 2005, using this as a basis for predicting the 2010 population. Since the census is conducted every five years, the model must estimate population changes over this period. To validate the accuracy of the model, the 2015 census serves as a benchmark, as the 2020 census was unavailable during this study.
+
+#### Key Data Preparation Steps:
+
+1. The initial step involved clearly defining the ideal structure of the dataset before proceeding with data cleaning. This included identifying necessary columns and rows to streamline the process and minimize time spent iterating on data cleaning.
+2. The population data was filtered to focus on the years 1990–2005 and was transformed into a structured and consistent format using dplyr and tidyverse.
+3. Data cleaning is a crucial and challenging part of data analysis, requiring significant effort to ensure reliability for subsequent analysis.
+
+The processed dataset includes age-wise population data for the years of interest, which is critical for building the cohort model.
+
+
+```{r raw_data,message=FALSE}
+population = read_excel('05016.xls')
+population = population %>% 
+  select(3,5,seq(12,67,7)) %>% 
+  slice(-c(1,2,4:10, 133:144)) 
+
+population_each = population %>%
+  slice(-c(seq(3,117,6))) %>% 
+  slice(-c(1:2)) %>% 
+  slice(-101) %>% 
+  select(-...3)
+colnames(population_each) = c('age',population[1,c(3:10)])
+colnames(population_each) = c('age','year_1920','year_1960','year_1970','year_1980','year_1990','year_1995','year_2000','year_2005')
+population_1990to2005 = population_each %>% 
+  select('age','year_1990','year_1995','year_2000','year_2005')
+
+population_1990to2005 = population_1990to2005 %>% 
+  mutate(year_1990 = as.numeric(population_1990to2005$year_1990)) %>% 
+  mutate(year_1995 = as.numeric(population_1990to2005$year_1995)) %>% 
+  mutate(year_2000 = as.numeric(population_1990to2005$year_2000)) %>% 
+  mutate(year_2005 = as.numeric(population_1990to2005$year_2005))
+
+
+DT::datatable(head(population_each,100),
+              rownames = FALSE,
+              options = list(
+                pageLength = 10,
+                pageLength = c(10,20,30,40,50)))
+```
+
+### Cohort Model Development
+
+The cohort model was constructed by aligning the population data for each age group across census years. Given the five-year interval between censuses, individuals of a particular age in 1990 can be tracked to subsequent census years by advancing their age accordingly. For example, individuals aged 0 in 1990 correspond to those aged 5 in 1995.
+
+The *lead* function in R was instrumental in shifting data columns to represent population transitions over time. The resulting cohort table captures the population dynamics across age groups for 1990, 1995, 2000, and 2005. Notably, individuals aged 84 in 1990 who survived to 99 by 2005 were included in the analysis, while those aged over 100 were excluded due to data sparsity.
+ 
+
+```{r cohort_1990to2005, message=FALSE}
+cohort_1990to2005 = population_1990to2005 %>% 
+  mutate(year_1995 = as.numeric(lead(population_each$year_1995,5)))%>% 
+  mutate(year_2000 = as.numeric(lead(population_each$year_2000,10)))%>% 
+  mutate(year_2005 = as.numeric(lead(population_each$year_2005,15)))%>%
+  rename( 'age_at_1990' = 'age')
+
+
+knitr::kable(tail(cohort_1990to2005,16))
+```
+
+### Survival Rates
+
+The five-year survival rates were calculated for each age group, reflecting the proportion of individuals surviving to subsequent census years. This metric is essential for understanding population dynamics and forms the basis for future population predictions.
+
+A survival rate exceeding 100% was observed in certain cases, likely due to net immigration inflows. For instance, the very low infant mortality rate in Japan combined with immigration could account for higher-than-expected survival rates for younger age groups.
+```{r cohort_1990to2005_pct, }
+cohort_1990to2005_pct = data.frame(
+  cohort = cohort_1990to2005$'age_at_1990', 
+  pop_1990 = cohort_1990to2005$year_1990, # pop at 1990
+  round(cohort_1990to2005[,3:ncol(cohort_1990to2005)] / cohort_1990to2005[["year_1990"]],3)*100 #  divide eahc pop by pop_1990 
+)
+DT::datatable(head(cohort_1990to2005_pct,100),
+              rownames = FALSE,
+              options = list(
+                pageLength = 8
+                ))
+```
+*Note: It is weird to have 100+% of surviving rate. I assume infant death rate is very low and some immigrants are causing 100+% of surviving rate.*
+
+
+### Visualization of Cohort Data
+
+To enhance interpretability, a visual representation of cohort data was created. Since plotting all 100 rows would result in cluttered visuals, a subset of the data (cohorts aged 64–94) was selected for visualization. This plot effectively illustrates survival trends and population dynamics within these cohorts over time.
+```{r}
+temp = as.matrix(cohort_1990to2005_pct[65:95,])
+rownames(temp) = as.character(paste(temp[,1],'_',temp[,2]))
+temp = temp[,3:ncol(temp)]
+colnames(temp) = paste( seq(1995,2005,5),'year', seq(5,15,5))
+
+
+plot.table(temp, smain = 'Cohort _ pop1990', highlight = TRUE, colorbar = TRUE)
+
+```
+
+### Population Estimation for 2010
+
+Population estimates for 2010 were derived as follows:
+	1.	The survival rate from 2000 to 2005 was calculated for each cohort.
+	2.	These rates were applied to the 2005 population data to estimate the population in 2010.
+	3.	The estimated population for 2010 was appended to the existing cohort table for validation.
+
+
+```{r estimate, }
+survival_pct_2000to2005 = cohort_1990to2005[,5]/cohort_1990to2005[,4]
+colnames(survival_pct_2000to2005) = 'survival_rate'
+
+pop2005 = cohort_1990to2005 %>% 
+  select(year_2005) %>% 
+  transmute(year_15 = as.numeric(cohort_1990to2005$year_2005))
+estpop_2010 = data.frame(round(survival_pct_2000to2005 * pop2005))
+
+colnames(estpop_2010) = c('Est_year_2010')
+final_cohort = cbind(cohort_1990to2005,estpop_2010)
+DT::datatable(head(final_cohort,100),
+              rownames = FALSE,
+              options = list(
+                pageLength = 10
+                ))
+```
+
+
+### Model Validation
+
+The model’s performance was evaluated against the actual population data from the 2010 census. The residuals (differences) and percentage errors were calculated for each cohort. While the model demonstrated high accuracy for younger age groups, the error rates increased for older cohorts, likely due to the longer time span between censuses and the higher uncertainty associated with older populations.
+
+Key Observations:
+	•	Most errors remained below 10%, but some older cohorts exhibited errors as high as 37.2%.
+	•	The average percentage error was approximately 6%, indicating overall strong performance, especially for younger populations.
+
+```{r test }
+actual_pop2010 = tibble(c(1045975,1045417,1074194,1069540,1061622,1058489,1098856,1117316,1147733,1163267,1175275,1176598,1195772,1190404,1182986,1218766,1226037,1202514,1215892,1200148,1219150,1249329,1288282,1321513,1348159,1404312,1449555,1469956,1475731,1494147,1561305,1600983,1669936,1712263,1797010,1880293,1981982,2017073,1978648,1928353,1874292,1846761,1807649,1803149,1410014,1744172,1632518,1594519,1542921,1518986,1532059,1559648,1519884,1478697,1554211,1608361,1611287,1713738,1809889,1920459,2066423,2261917,2244319,2132584,1332006,1426865,1732916,1674435,1714817,1661140,1500984,1298743,1376960,1400129,1386486,1308845,1217357,1197125,1143547,1074139,990275,932127,868554,801946,743362,648870,547394,472872,411987,351465,316840,219756,192863,160027,132221,97626,77372,55845,39826,26087))
+actual_pop2010 = lead(actual_pop2010, 19) # shift dataset as you needed
+# Here, I need 19 years old as cohort 0. Since 0 years old in 1990 is 19 years old in 2010. 
+
+# Get residuals 
+
+diff = actual_pop2010 - final_cohort$Est_year_2010 
+diff_pct = diff/actual_pop2010
+result = cbind(actual_pop2010, final_cohort$Est_year_2010, diff, abs(diff_pct)*100)
+colnames(result) = c('actual','estimate','diff','diff_pct(%)')
+
+
+DT::datatable(head(result,100),
+              rownames = FALSE,
+              options = list(
+                pageLength = 10,
+                pageLength = c(10,20,30,40,50)))
+```
+
+
+### Error Distribution Analysis
+
+The distribution of percentage errors was plotted, highlighting the model’s strengths and limitations. The error distribution confirmed that estimates for younger cohorts were more reliable, while older age groups posed challenges due to the compounded effects of mortality and migration over the five-year intervals.
+```{r , message=F, warning=F}
+ggplot(result, aes(x=`diff_pct(%)`))+
+   geom_density(alpha=.5, fill='red') + 
+  xlab('%') + 
+  labs(title = 'Distribution of Error (%)')
+  
+```
+
+
+```{r sum up}
+summary(result$diff_pct)
+```
+
+### Summary of Results
+
+The model achieved an average error rate of 6%, with maximum errors observed in the oldest age groups. This analysis underscores the importance of accounting for demographic dynamics, particularly in older populations, when forecasting long-term trends. Despite these challenges, the model demonstrated robust predictive capability, particularly for younger age groups, providing valuable insights for demographic planning and policy development.
+
