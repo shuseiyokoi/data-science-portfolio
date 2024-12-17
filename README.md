@@ -8,6 +8,6 @@ Constant Proportion Portfolio Insurance (CPPI) is a popular investment strategy 
 
 
 ## [Cohort Analysis](https://github.com/shuseiyokoi/data-science-portfolio/blob/main/cohort-analysis)
-Conduct cohort analysis on Japan’s population data using Python and to develop a predictive model for estimating future population trends. This involves analyzing historical census data and deriving survival rates to forecast population changes accurately.
+Conduct cohort analysis on Japan’s population data using Python and R to develop a predictive model for estimating future population trends. This involves analyzing historical census data and deriving survival rates to forecast population changes accurately.
 
 ![image](https://github.com/user-attachments/assets/8bed1c89-3afe-4785-acbf-21a257f24927)
