@@ -5,8 +5,9 @@ date: "3/20/2022"
 output:
   html_document:
 ---
-# Objective
-To explore Individual Conditional Expectation (ICE) and run it in R script. This article is based on information in <a href = "https://www.amazon.co.jp/exec/obidos/ASIN/429712226X/hatena-blog-22/">「機械学習を解釈する技術 ~Techniques for Interpreting Machine Learning~」</a>by <a href = "https://dropout009.hatenablog.com/">Mitsunosuke Morishita</a>. In this book, the author does not go through all the methods by R, so I decided to make a brief note with an R script.  
+# The theory and implementation of SHAP (SHapley Additive exPlanations)
+
+## Theory
 
 **SHapley Additive exPlanations (SHAP)** is a method to understand how our AI model came to a certain decision. For example, if your task is to make AI for the loan screening process, you need to make sure why your AI came up to the conclusion because your applicant would desperate to know why they failed. The idea of SHAP is to allocate/calculate credits for each explanatory variable on the prediction. For example, in cooperative game theory, a player is able to choose "join" or "not join" the game. And if all players are "join" the game except player A, the difference between the result of the game within all players and the game without player A is going to be credited to player A. SHAP does a similer process to the model to help us to understand the behavior of the model.  
 
@@ -151,7 +152,6 @@ df = BostonHousing %>% select(where(is.numeric))
 
 Here are overview of the dataset
 
-![Detailes of Variables](dataset_overvirew.png)
 ```{r message=FALSE}
 head(df)
 ```
@@ -236,7 +236,7 @@ plot(shap)
 
 
 
-By By looking at the plot, we can tell that *lstat* has the highest contribution to the prediction. To interpret, *lstat* contributes *medv* to be high for the positive direction, and next contributor is *rm*.
+By looking at the plot, we can tell that *lstat* has the highest contribution to the prediction. To interpret, *lstat* contributes *medv* to be high for the positive direction, and next contributor is *rm*.
 
 
 
