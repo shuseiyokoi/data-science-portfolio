@@ -7,7 +7,7 @@ Constant Proportion Portfolio Insurance (CPPI) is a popular investment strategy 
 <img width="625" alt="image" src="https://github.com/user-attachments/assets/0fb779ab-be41-4194-91a4-08763feafe9a">
 
 
-## [](https://github.com/shuseiyokoi/data-science-portfolio/blob/main/SHAP/SHAP.ipynb)
+## [SHAP](https://github.com/shuseiyokoi/data-science-portfolio/blob/main/SHAP/SHAP.ipynb)
 
 SHapley Additive exPlanations (SHAP) is a method to interpret machine learning models by attributing contributions of explanatory variables to predictions using game theory principles. This article demonstrates SHAP’s application in R and python with the Housing dataset, exploring both individual and global feature importance. While effective for variable contribution analysis, SHAP does not explain relationships between variables, for which techniques like ICE are recommended.
 
